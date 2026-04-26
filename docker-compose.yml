@@ -3,24 +3,24 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: appdb
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: user             # cambiar
+      POSTGRES_PASSWORD: password     # cambiar
+      POSTGRES_DB: appdb              # cambiar
+    ports:                      # máquina local:puerto contenedor
+      - "5432:5432"             # original: 5432:5432
 
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    ports:                      # máquina local:puerto contenedor
+      - "8000:8000"             # original: 8000:8000
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/appdb
+      DATABASE_URL: postgresql://user:password@db:5432/appdb    # cambiar
 
   frontend:
     build: ./frontend
-    ports:
-      - "8501:8501"
+    ports:                      # máquina local:puerto contenedor
+      - "8501:8501"             # original: 8501:8501
     depends_on:
       - backend
