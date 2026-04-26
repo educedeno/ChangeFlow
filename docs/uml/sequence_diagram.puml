@@ -1,0 +1,154 @@
+@startuml ChangeFlow - Sequence Diagram
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 8
+skinparam sequenceParticipantBorderColor #444
+skinparam sequenceLifeLineBorderColor #888
+skinparam sequenceBoxBorderColor #ccc
+skinparam noteBorderColor #999
+skinparam noteBackgroundColor #FFFDE7
+
+title ChangeFlow — Flujos Críticos del Sistema
+
+actor       "Engineer\n(Solicitante)"  as ENG
+actor       "Approver\n(Manager/Lead)" as APR
+participant "Frontend\n(Streamlit)"    as FE
+participant "API\n(FastAPI)"           as API
+participant "Application\n(Use Cases)" as APP
+participant "Domain\n(Entities)"       as DOM
+participant "Repository\n(SQLAlchemy)" as REPO
+database    "PostgreSQL"               as DB
+participant "Event Bus\n(Observer)"    as BUS
+participant "Notification\nService"    as NOTIF
+participant "Audit\nService"           as AUDIT
+
+' ─────────────────────────────────────────────
+' FLUJO 1: Crear solicitud de cambio
+' ─────────────────────────────────────────────
+box "Flujo 1 — Crear solicitud de cambio" #F3F4F6
+  ENG  -> FE   : Completa formulario\n(título, descripción, riesgo, rollback plan)
+  FE   -> API  : POST /changes\n{ título, descripción, nivel_riesgo, rollback }
+  API  -> APP  : create_change_request(dto)
+  APP  -> DOM  : ChangeRequest(estado=DRAFT)
+  DOM  -> DOM  : validar reglas\n(¿tiene rollback si riesgo=HIGH?)
+  DOM  --> APP : entidad válida
+
+  APP  -> REPO : save(change_request)
+  REPO -> DB   : INSERT change_requests
+  DB   --> REPO: id generado
+  REPO --> APP : change_request persistida
+
+  APP  -> BUS  : publish(CHANGE_REQUEST_CREATED)
+  BUS  -> AUDIT: log(CHANGE_REQUEST_CREATED,\nuser_id, change_id, timestamp)
+  AUDIT -> DB  : INSERT audit_logs
+
+  APP  --> API : change_request_dto
+  API  --> FE  : 201 Created { id, estado: DRAFT }
+  FE   --> ENG : "Solicitud creada en borrador"
+end box
+
+' ─────────────────────────────────────────────
+' FLUJO 2: Enviar solicitud para revisión
+' ─────────────────────────────────────────────
+box "Flujo 2 — Enviar solicitud (DRAFT → SUBMITTED)" #EFF6FF
+  ENG  -> FE   : Confirma envío
+  FE   -> API  : PATCH /changes/{id}/submit
+  API  -> APP  : submit_change_request(change_id, user_id)
+
+  APP  -> REPO : find_by_id(change_id)
+  REPO -> DB   : SELECT change_requests WHERE id=?
+  DB   --> REPO: registro
+  REPO --> APP : change_request
+
+  APP  -> DOM  : cambiar estado\nDRAFT → SUBMITTED
+  DOM  -> DOM  : validar transición\n(solo dueño puede enviar,\nestado actual debe ser DRAFT)
+  DOM  --> APP : estado actualizado
+
+  APP  -> REPO : save(change_request)
+  REPO -> DB   : UPDATE change_requests SET estado='SUBMITTED'
+  DB   --> REPO: ok
+  REPO --> APP : ok
+
+  APP  -> BUS  : publish(CHANGE_REQUEST_SUBMITTED)
+  BUS  -> NOTIF: notify(CHANGE_REQUEST_SUBMITTED)
+  NOTIF-> DB   : INSERT notifications\n(para todos los Approvers)
+  BUS  -> AUDIT: log(CHANGE_REQUEST_SUBMITTED)
+  AUDIT-> DB   : INSERT audit_logs
+
+  APP  --> API : ok
+  API  --> FE  : 200 OK { estado: SUBMITTED }
+  FE   --> ENG : "Solicitud enviada a revisión"
+  FE   --> APR : [notificación] "Hay un cambio pendiente de revisión"
+end box
+
+' ─────────────────────────────────────────────
+' FLUJO 3: Revisión y decisión del Approver
+' ─────────────────────────────────────────────
+box "Flujo 3 — Revisión y decisión (SUBMITTED → IN_REVIEW → APPROVED/REJECTED)" #F0FDF4
+  APR  -> FE   : Abre solicitud y revisa detalle
+  FE   -> API  : GET /changes/{id}
+  API  -> APP  : get_change_request(change_id, approver_id)
+  APP  -> REPO : find_by_id(change_id)
+  REPO -> DB   : SELECT
+  DB   --> REPO: registro
+  REPO --> APP : change_request
+  APP  --> API : change_request_dto
+  API  --> FE  : 200 OK { detalle completo }
+  FE   --> APR : muestra detalle, rollback plan, nivel de riesgo
+
+  APR  -> FE   : Toma decisión (aprobar o rechazar)
+  FE   -> API  : PATCH /changes/{id}/decide\n{ decisión: APPROVED, comentario }
+  API  -> APP  : decide_change_request(change_id, approver_id, decisión, comentario)
+
+  APP  -> REPO : find_by_id(change_id)
+  REPO -> DB   : SELECT
+  DB   --> REPO: registro
+  REPO --> APP : change_request
+
+  APP  -> DOM  : cambiar estado\nSUBMITTED → IN_REVIEW → APPROVED (o REJECTED)
+  DOM  -> DOM  : validar transición\n(solo Approver puede decidir,\nno puede aprobar el propio cambio)
+  DOM  --> APP : estado actualizado
+
+  APP  -> REPO : save(change_request)
+  REPO -> DB   : UPDATE change_requests SET estado='APPROVED'
+  DB   --> REPO: ok
+
+  APP  -> REPO : save(approval_record)
+  REPO -> DB   : INSERT approvals\n(approver_id, decisión, comentario, timestamp)
+  DB   --> REPO: ok
+
+  APP  -> BUS  : publish(CHANGE_REQUEST_APPROVED)\n[o CHANGE_REQUEST_REJECTED]
+  BUS  -> NOTIF: notify(CHANGE_REQUEST_APPROVED)
+  NOTIF-> DB   : INSERT notifications\n(para el Engineer solicitante)
+  BUS  -> AUDIT: log(CHANGE_REQUEST_APPROVED,\napprover_id, change_id)
+  AUDIT-> DB   : INSERT audit_logs
+
+  APP  --> API : ok
+  API  --> FE  : 200 OK { estado: APPROVED }
+  FE   --> APR : "Decisión registrada"
+  FE   --> ENG : [notificación] "Tu cambio fue aprobado"
+end box
+
+' ─────────────────────────────────────────────
+' FLUJO 4: Rechazo con comentario (rama alternativa)
+' ─────────────────────────────────────────────
+box "Flujo 4 — Rechazo (rama alternativa de Flujo 3)" #FFF7ED
+  note over APR, FE
+    Mismo flujo que APPROVED pero con decisión=REJECTED.
+    El Engineer puede corregir y reenviar (REJECTED → DRAFT → SUBMITTED).
+  end note
+
+  APR  -> FE   : Rechaza con comentario
+  FE   -> API  : PATCH /changes/{id}/decide\n{ decisión: REJECTED, comentario }
+  API  -> APP  : decide_change_request(..., REJECTED, comentario)
+  APP  -> DOM  : SUBMITTED → REJECTED
+  DOM  --> APP : ok
+  APP  -> REPO : UPDATE estado='REJECTED'
+  APP  -> BUS  : publish(CHANGE_REQUEST_REJECTED)
+  BUS  -> NOTIF: notify(Engineer)
+  BUS  -> AUDIT: log(CHANGE_REQUEST_REJECTED)
+  API  --> FE  : 200 OK { estado: REJECTED }
+  FE   --> ENG : [notificación] "Tu cambio fue rechazado:\n<comentario del Approver>"
+end box
+
+@enduml
