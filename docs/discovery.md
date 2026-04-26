@@ -1,6 +1,6 @@
 # Discovery Document — ChangeFlow
 **Plataforma de solicitudes de cambios técnicos**
-_Versión 1.0 — Abril 2026_
+
 
 ---
 
