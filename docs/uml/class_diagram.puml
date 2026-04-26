@@ -1,0 +1,96 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class User {
+  +id: UUID
+  +name: String
+  +email: String
+  +role: Role
+}
+
+enum Role {
+  ENGINEER
+  TECH_LEAD
+  OPERATIONS_REVIEWER
+  SECURITY_REVIEWER
+  ADMIN
+}
+
+class ChangeRequest {
+  +id: UUID
+  +title: String
+  +description: String
+  +affected_system: String
+  +risk_level: RiskLevel
+  +status: ChangeStatus
+  +created_at: DateTime
+  +scheduled_at: DateTime
+  +executed_at: DateTime
+  +failure_reason: String
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ChangeStatus {
+  DRAFT
+  SUBMITTED
+  TECH_REVIEW
+  OPS_REVIEW
+  SECURITY_REVIEW
+  APPROVED
+  SCHEDULED
+  EXECUTED
+  FAILED
+  REJECTED
+  CHANGES_REQUESTED
+  CANCELLED
+}
+
+class RollbackPlan {
+  +id: UUID
+  +description: String
+  +required: Boolean
+}
+
+class Approval {
+  +id: UUID
+  +decision: ApprovalDecision
+  +comment: String
+  +decided_at: DateTime
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+class AuditLog {
+  +id: UUID
+  +event_type: String
+  +timestamp: DateTime
+  +metadata: JSON
+}
+
+class Notification {
+  +id: UUID
+  +event_type: String
+  +recipient: String
+  +channel: String
+  +priority: String
+  +sent_at: DateTime
+}
+
+User "1" --> "*" ChangeRequest : creates
+ChangeRequest "1" --> "0..1" RollbackPlan : has
+ChangeRequest "1" --> "*" Approval : requires
+User "1" --> "*" Approval : reviews
+ChangeRequest "1" --> "*" AuditLog : records
+ChangeRequest "1" --> "*" Notification : triggers
+User "1" --> "*" Notification : receives
+
+@enduml
