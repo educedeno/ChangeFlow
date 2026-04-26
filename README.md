@@ -153,8 +153,8 @@ Dispara los deploy hooks de Render vía `curl` para redeployar los servicios cor
 
 | Ambiente | Backend | Frontend |
 |---|---|---|
-| **Dev** | _pendiente_ | _pendiente_ |
-| **Prod** | _pendiente_ | _pendiente_ |
+| **Dev** | https://changeflow-backend-dev.onrender.com | https://changeflow-frontend-dev.onrender.com |
+| **Prod** | https://changeflow-backend-prod.onrender.com | https://changeflow-frontend-prod.onrender.com |
 
 > Los links se actualizan una vez que los servicios de Render estén activos (Issues 3 y 4).
 
