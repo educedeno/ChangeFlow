@@ -131,6 +131,26 @@ APPROVED → SCHEDULED → EXECUTED
 
 ---
 
+## Alcance del MVP
+
+El MVP de ChangeFlow debe permitir:
+
+| # | Funcionalidad | Descripción |
+|---|---|---|
+| 1 | **Crear solicitud de cambio** | El Engineer puede crear una solicitud en estado DRAFT con todos los campos requeridos (sistema afectado, descripción, nivel de riesgo, fecha estimada) |
+| 2 | **Plan de rollback obligatorio** | Cambios MEDIUM y HIGH deben incluir un plan de rollback para poder avanzar en el flujo |
+| 3 | **Flujo de aprobación por riesgo** | LOW requiere solo Tech Lead; MEDIUM agrega Operations; HIGH agrega Security |
+| 4 | **Estados y transiciones del ciclo de vida** | Gestión completa de estados: DRAFT → SUBMITTED → revisiones → APPROVED → SCHEDULED → EXECUTED / FAILED / CANCELLED |
+| 5 | **Registro del resultado de ejecución** | El Engineer puede marcar un cambio como EXECUTED o FAILED y registrar el motivo si falla |
+| 6 | **Notificaciones internas** | El sistema notifica a los aprobadores correspondientes y al solicitante en cada transición relevante |
+| 7 | **Autenticación y roles** | Login con JWT; cada usuario tiene un rol que determina qué puede ver y hacer |
+| 8 | **CRUD de usuarios (Admin)** | El Admin puede crear, editar y asignar roles a los usuarios del sistema |
+| 9 | **Panel de administración** | El Admin tiene visibilidad total de todas las solicitudes y puede reasignar o cancelar |
+| 10 | **Restricciones operativas** | La plataforma impide ejecutar cambios no aprobados y bloquea transiciones inválidas |
+
+> El MVP **no ejecuta cambios reales** en producción. Su objetivo es registrar, aprobar y trazar — no automatizar.
+
+---
 ## Fuera de alcance del MVP
 
 Los siguientes elementos **no forman parte del MVP**:
