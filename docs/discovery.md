@@ -162,6 +162,16 @@ Los siguientes elementos **no forman parte del MVP**:
 | Ambigüedad en la definición de "sistema crítico" | Medio | Definir criterios de clasificación antes del lanzamiento |
 | Notificaciones no llegan o se ignoran | Medio | Definir canal de notificación confiable |
 
+### Preguntas abiertas
+
+1. ¿Quién tiene permiso para reclasificar el riesgo de una solicitud ya enviada?
+2. ¿Puede un Tech Lead también ser Engineer (solicitar cambios)?
+3. ¿Cuál es el SLA esperado por nivel de revisión?
+4. ¿La agenda de ejecución (`SCHEDULED`) la define el Engineer o el Operations Reviewer?
+5. ¿Qué sistema de notificaciones se usará en el MVP (email, notificación interna)?
+6. ¿Se requiere historial de versiones de una solicitud si se piden cambios (`CHANGES_REQUESTED`)?
+
+
 ## Requerimientos funcionales
 
 **RF-01.** El sistema debe permitir que un Engineer cree solicitudes de cambio técnico.
