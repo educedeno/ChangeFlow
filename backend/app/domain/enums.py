@@ -1,0 +1,22 @@
+from enum import Enum
+
+
+class RiskLevel(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class ChangeStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    TECH_REVIEW = "TECH_REVIEW"
+    OPS_REVIEW = "OPS_REVIEW"
+    SECURITY_REVIEW = "SECURITY_REVIEW"
+    APPROVED = "APPROVED"
+    SCHEDULED = "SCHEDULED"
+    EXECUTED = "EXECUTED"
+    FAILED = "FAILED"
+    REJECTED = "REJECTED"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    CANCELLED = "CANCELLED"
