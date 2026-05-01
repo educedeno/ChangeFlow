@@ -98,3 +98,32 @@ def delete_user(
     deleted = repo.delete(user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+
+from application.use_cases.assign_role import AssignRoleUseCase
+
+class AssignRoleRequest(BaseModel):
+    role: Role
+
+
+@router.put("/{user_id}/role")
+def assign_role(
+    user_id: str,
+    body: AssignRoleRequest,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+):
+    use_case = AssignRoleUseCase()
+    try:
+        user = use_case.execute(user_id=user_id, new_role=body.role)
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role.value,
+            "permissions": [p.value for p in user.permissions],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+
+    
