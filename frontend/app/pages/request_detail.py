@@ -5,15 +5,19 @@ Esta vista la comparten varias personas del equipo. La sección
 "Acciones del aprobador" es responsabilidad de Persona 3 (feature de aprobación).
 """
 
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from uuid import UUID
 
+import requests
 import streamlit as st
 
 from app.api_client import ApiClient
+
+API_URL = os.getenv("API_BASE_URL", "http://backend:8000")
 
 st.set_page_config(page_title="Detalle de solicitud", page_icon="📄")
 st.title("📄 Detalle de solicitud")
@@ -84,3 +88,47 @@ if approval_id_str:
             st.success(msg)
         else:
             st.error(msg)
+
+st.divider()
+
+# =============================================================================
+# Historial de la solicitud (Persona 4 — auditoría)
+# =============================================================================
+
+st.subheader("Historial de la solicitud")
+
+request_id_str = st.text_input(
+    "Request ID",
+    help="Cuando se conecte el listado real, esto se rellenará automáticamente.",
+    key="audit_request_id",
+)
+
+if request_id_str:
+    try:
+        UUID(request_id_str)
+    except ValueError:
+        st.error("Request ID inválido.")
+        st.stop()
+
+    if not st.session_state.get("token"):
+        st.warning("Se necesita sesión activa para ver el historial.")
+        st.stop()
+
+    token = st.session_state.token
+    resp = requests.get(
+        f"{API_URL}/audit/ChangeRequest/{request_id_str}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+
+    if resp.status_code != 200:
+        st.error(f"Error al cargar historial: {resp.json().get('detail', resp.status_code)}")
+        st.stop()
+
+    entries = resp.json()
+
+    if not entries:
+        st.info("Esta solicitud aún no tiene historial.")
+    else:
+        for e in entries:
+            st.caption(f"🕐 {e['occurred_at']}  |  **{e['action']}**  |  actor: `{e['actor_id']}`" + (f"  |  {e['detail']}" if e.get("detail") else ""))
