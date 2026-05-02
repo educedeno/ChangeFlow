@@ -7,7 +7,7 @@ import pytest
 
 from app.application.services.audit_service import AuditService
 from app.application.services.event_bus import EventBus
-from app.application.services.notification_service import NotificationService
+from app.application.services.notification_service import InAppChannel, NotificationService
 from app.domain.entities import AuditEntry, Notification
 from app.domain.events import (
     ChangesRequested,
@@ -47,7 +47,7 @@ class FakeAuditRepository:
 class TestNotificationService:
     def setup_method(self):
         self.repo = FakeNotificationRepository()
-        self.service = NotificationService(self.repo)
+        self.service = NotificationService([InAppChannel(self.repo)])
 
     def test_on_request_created_saves_notification(self):
         event = RequestCreated(
@@ -271,7 +271,7 @@ class TestEventBus:
     def test_notification_service_wired_to_bus(self):
         """Prueba de integración: NotificationService conectado al EventBus."""
         repo = FakeNotificationRepository()
-        service = NotificationService(repo)
+        service = NotificationService([InAppChannel(repo)])
 
         bus = EventBus()
         bus.subscribe(RequestCreated, service.on_request_created)

@@ -1,5 +1,6 @@
 """Punto de entrada de la API FastAPI."""
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,7 +10,11 @@ from app.api.routes import notifications as notifications_router
 from app.api.routes import requests as requests_router
 from app.application.services.audit_service import AuditService
 from app.application.services.event_bus import EventBus
-from app.application.services.notification_service import NotificationService
+from app.application.services.notification_service import (
+    EmailChannel,
+    InAppChannel,
+    NotificationService,
+)
 from app.domain.events import (
     ChangesRequested,
     RequestApproved,
@@ -32,7 +37,10 @@ async def lifespan(app: FastAPI):
     notification_repo = SQLAlchemyNotificationRepository(session)
     audit_repo = SQLAlchemyAuditRepository(session)
 
-    notification_svc = NotificationService(notification_repo)
+    channels = [InAppChannel(notification_repo)]
+    if os.getenv("EMAIL_NOTIFICATIONS", "false").lower() == "true":
+        channels.append(EmailChannel())
+    notification_svc = NotificationService(channels)
     audit_svc = AuditService(audit_repo)
 
     bus = EventBus()
