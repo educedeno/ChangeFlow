@@ -1,0 +1,102 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+
+actor Engineer
+actor "Tech Lead" as TechLead
+actor "Operations Reviewer" as OpsReviewer
+actor "Security Reviewer" as SecurityReviewer
+actor Admin
+
+rectangle "ChangeFlow" {
+
+  rectangle "Engineer actions" {
+    usecase "Create change request" as UC_Create
+    usecase "Submit change request" as UC_Submit
+    usecase "Cancel own request" as UC_CancelOwn
+    usecase "View request detail" as UC_ViewDetail
+  }
+
+  rectangle "Tech Lead review" {
+    usecase "Review technical impact" as UC_TechReview
+    usecase "Approve LOW / MEDIUM / HIGH change" as UC_TechApprove
+    usecase "Reject change" as UC_TechReject
+    usecase "Request changes" as UC_TechChanges
+  }
+
+  rectangle "Operations review" {
+    usecase "Review operational impact" as UC_OpsReview
+    usecase "Validate execution window" as UC_Window
+    usecase "Approve MEDIUM / HIGH change" as UC_OpsApprove
+    usecase "Reject change" as UC_OpsReject
+    usecase "Request changes" as UC_OpsChanges
+  }
+
+  rectangle "Security review" {
+    usecase "Review security impact" as UC_SecReview
+    usecase "Approve HIGH change" as UC_SecApprove
+    usecase "Reject critical change" as UC_SecReject
+    usecase "Request changes" as UC_SecChanges
+  }
+
+  rectangle "Admin actions" {
+    usecase "View all requests" as UC_ViewAll
+    usecase "Reassign request" as UC_Reassign
+    usecase "Cancel request" as UC_CancelAny
+    usecase "Register execution result" as UC_RegisterResult
+  }
+
+  rectangle "System actions" {
+    usecase "Notify stakeholders" as UC_Notify
+    usecase "Record audit log" as UC_Audit
+  }
+}
+
+Engineer --> UC_Create
+Engineer --> UC_Submit
+Engineer --> UC_CancelOwn
+Engineer --> UC_ViewDetail
+
+TechLead --> UC_TechReview
+TechLead --> UC_TechApprove
+TechLead --> UC_TechReject
+TechLead --> UC_TechChanges
+
+OpsReviewer --> UC_OpsReview
+OpsReviewer --> UC_Window
+OpsReviewer --> UC_OpsApprove
+OpsReviewer --> UC_OpsReject
+OpsReviewer --> UC_OpsChanges
+
+SecurityReviewer --> UC_SecReview
+SecurityReviewer --> UC_SecApprove
+SecurityReviewer --> UC_SecReject
+SecurityReviewer --> UC_SecChanges
+
+Admin --> UC_ViewAll
+Admin --> UC_Reassign
+Admin --> UC_CancelAny
+Admin --> UC_RegisterResult
+
+UC_Submit --> UC_Notify
+UC_TechApprove --> UC_Notify
+UC_OpsApprove --> UC_Notify
+UC_SecApprove --> UC_Notify
+UC_TechReject --> UC_Notify
+UC_OpsReject --> UC_Notify
+UC_SecReject --> UC_Notify
+UC_RegisterResult --> UC_Notify
+
+UC_Create --> UC_Audit
+UC_Submit --> UC_Audit
+UC_TechApprove --> UC_Audit
+UC_OpsApprove --> UC_Audit
+UC_SecApprove --> UC_Audit
+UC_TechReject --> UC_Audit
+UC_OpsReject --> UC_Audit
+UC_SecReject --> UC_Audit
+UC_RegisterResult --> UC_Audit
+
+@enduml
