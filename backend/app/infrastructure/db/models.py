@@ -11,7 +11,7 @@ la entidad principal puede extenderlo con los campos que necesite.
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum as SAEnum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
@@ -86,3 +86,26 @@ class DecisionModel(Base):
     decided_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     approval = relationship("ApprovalModel", back_populates="decisions")
+
+
+class NotificationModel(Base):
+    __tablename__ = "notifications"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    event_type = Column(String(100), nullable=False)
+    read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AuditEntryModel(Base):
+    __tablename__ = "audit_entries"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    actor_id = Column(String, nullable=False)
+    action = Column(String(100), nullable=False)
+    entity_type = Column(String(100), nullable=False)
+    entity_id = Column(String, nullable=False)
+    detail = Column(Text, nullable=True)
+    occurred_at = Column(DateTime, default=datetime.utcnow, nullable=False)
