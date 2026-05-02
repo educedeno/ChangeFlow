@@ -19,6 +19,8 @@ def get_change_request_repository():
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from infrastructure.auth.token_provider import TokenProvider
+from domain.enums import Role
+
 
 bearer_scheme = HTTPBearer()
 
@@ -35,9 +37,6 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado",
         )
-
-from domain.enums import Role
-from functools import lru_cache
 
 
 def require_role(*allowed_roles: Role):
