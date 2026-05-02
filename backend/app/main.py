@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes import audit as audit_router
+from app.api.routes import notifications as notifications_router
 from app.api.routes import requests as requests_router
 from app.application.services.audit_service import AuditService
 from app.application.services.event_bus import EventBus
@@ -58,6 +60,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ChangeFlow API", lifespan=lifespan)
 
 app.include_router(requests_router.router)
+app.include_router(notifications_router.router)
+app.include_router(audit_router.router)
 
 
 @app.get("/health")
