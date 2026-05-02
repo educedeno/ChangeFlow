@@ -30,3 +30,22 @@ class ActionResponse(BaseModel):
     success: bool
     message: str
     new_status: Optional[str] = None
+
+
+class NotificationResponse(BaseModel):
+    id: UUID
+    user_id: str
+    message: str
+    event_type: str
+    read: bool
+    created_at: datetime
+
+
+class AuditEntryResponse(BaseModel):
+    id: UUID
+    actor_id: str
+    action: str
+    entity_type: str
+    entity_id: str
+    detail: Optional[str]
+    occurred_at: datetime

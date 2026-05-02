@@ -14,8 +14,12 @@ from app.infrastructure.db.session import get_db
 from app.infrastructure.repositories.approval_repository import (
     SQLAlchemyApprovalRepository,
 )
+from app.infrastructure.repositories.audit_repository import SQLAlchemyAuditRepository
 from app.infrastructure.repositories.change_request_repository import (
     SQLAlchemyChangeRequestRepository,
+)
+from app.infrastructure.repositories.notification_repository import (
+    SQLAlchemyNotificationRepository,
 )
 
 
@@ -27,6 +31,16 @@ def get_approval_repo(db: Session = Depends(get_db)):
 
 def get_change_request_repo(db: Session = Depends(get_db)):
     return SQLAlchemyChangeRequestRepository(db)
+
+
+# ---- Repositorios de notificaciones y auditoría ----
+
+def get_notification_repo(db: Session = Depends(get_db)):
+    return SQLAlchemyNotificationRepository(db)
+
+
+def get_audit_repo(db: Session = Depends(get_db)):
+    return SQLAlchemyAuditRepository(db)
 
 
 # ---- Casos de uso ----
