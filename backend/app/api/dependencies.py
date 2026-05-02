@@ -5,11 +5,14 @@ Dependencies de FastAPI: inyección de repositorios, casos de uso y usuario actu
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.application.use_cases.approve_request import ApproveRequestUseCase
 from app.application.use_cases.assign_reviewer import AssignReviewerUseCase
 from app.application.use_cases.reject_request import RejectRequestUseCase
+from app.domain.enums import Role
+from app.infrastructure.auth.token_provider import TokenProvider
 from app.infrastructure.db.session import get_db
 from app.infrastructure.repositories.approval_repository import (
     SQLAlchemyApprovalRepository,
@@ -104,10 +107,6 @@ def get_change_request_repository():
             return None
 
     return FakeRepository()
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from infrastructure.auth.token_provider import TokenProvider
-from domain.enums import Role
 
 
 bearer_scheme = HTTPBearer()
