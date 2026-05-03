@@ -1,8 +1,17 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
-from app.domain.enums import ChangeStatus, RiskLevel
+from app.domain.enums import (
+    ApprovalStatus,
+    ChangeStatus,
+    DecisionAction,
+    Permission,
+    RiskLevel,
+    Role,
+)
+from app.domain.value_objects import ROLE_PERMISSIONS
 
 
 @dataclass
@@ -15,9 +24,9 @@ class ChangeRequest:
     id: UUID = field(default_factory=uuid4)
     status: ChangeStatus = ChangeStatus.DRAFT
     created_at: datetime = field(default_factory=datetime.utcnow)
-    scheduled_at: datetime | None = None
-    executed_at: datetime | None = None
-    failure_reason: str | None = None
+    scheduled_at: Optional[datetime] = None
+    executed_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not self.title.strip():
@@ -30,13 +39,12 @@ class ChangeRequest:
             raise ValueError("risk_level must be a valid RiskLevel")
         if not isinstance(self.status, ChangeStatus):
             raise ValueError("status must be a valid ChangeStatus")
-    
+
     def submit(self) -> None:
         if self.status != ChangeStatus.DRAFT:
             raise ValueError("Only draft requests can be submitted")
         self.status = ChangeStatus.SUBMITTED
-from domain.enums import Role, Permission
-from domain.value_objects import ROLE_PERMISSIONS
+
 
 @dataclass
 class User:
@@ -61,7 +69,7 @@ class UserFactory:
         hashed_password: str,
         role: Role,
         is_active: bool = True,
-    ) -> User:
+    ) -> "User":
         permissions = ROLE_PERMISSIONS.get(role, [])
         return User(
             id=id,
@@ -72,13 +80,6 @@ class UserFactory:
             is_active=is_active,
             permissions=permissions,
         )
-        
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
-from uuid import UUID, uuid4
-
-from app.domain.enums import ApprovalStatus, DecisionAction
 
 
 @dataclass
@@ -133,3 +134,29 @@ class Decision:
                 raise ValueError(
                     f"La acción {self.action.value} requiere un comentario."
                 )
+
+
+@dataclass
+class Notification:
+    """Notificación generada para un usuario cuando ocurre un evento relevante."""
+    user_id: str
+    message: str
+    event_type: str
+    id: UUID = field(default_factory=uuid4)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    read: bool = False
+
+    def mark_read(self) -> None:
+        self.read = True
+
+
+@dataclass
+class AuditEntry:
+    """Registro inmutable de una acción importante en el sistema."""
+    actor_id: str
+    action: str
+    entity_type: str
+    entity_id: str
+    id: UUID = field(default_factory=uuid4)
+    detail: Optional[str] = None
+    occurred_at: datetime = field(default_factory=datetime.utcnow)

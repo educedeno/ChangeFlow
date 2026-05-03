@@ -5,17 +5,24 @@ Dependencies de FastAPI: inyección de repositorios, casos de uso y usuario actu
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.application.use_cases.approve_request import ApproveRequestUseCase
 from app.application.use_cases.assign_reviewer import AssignReviewerUseCase
 from app.application.use_cases.reject_request import RejectRequestUseCase
+from app.domain.enums import Role
+from app.infrastructure.auth.token_provider import TokenProvider
 from app.infrastructure.db.session import get_db
 from app.infrastructure.repositories.approval_repository import (
     SQLAlchemyApprovalRepository,
 )
+from app.infrastructure.repositories.audit_repository import SQLAlchemyAuditRepository
 from app.infrastructure.repositories.change_request_repository import (
     SQLAlchemyChangeRequestRepository,
+)
+from app.infrastructure.repositories.notification_repository import (
+    SQLAlchemyNotificationRepository,
 )
 
 
@@ -27,6 +34,16 @@ def get_approval_repo(db: Session = Depends(get_db)):
 
 def get_change_request_repo(db: Session = Depends(get_db)):
     return SQLAlchemyChangeRequestRepository(db)
+
+
+# ---- Repositorios de notificaciones y auditoría ----
+
+def get_notification_repo(db: Session = Depends(get_db)):
+    return SQLAlchemyNotificationRepository(db)
+
+
+def get_audit_repo(db: Session = Depends(get_db)):
+    return SQLAlchemyAuditRepository(db)
 
 
 # ---- Casos de uso ----
@@ -90,10 +107,6 @@ def get_change_request_repository():
             return None
 
     return FakeRepository()
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from infrastructure.auth.token_provider import TokenProvider
-from domain.enums import Role
 
 
 bearer_scheme = HTTPBearer()

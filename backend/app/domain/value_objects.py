@@ -1,4 +1,4 @@
-from domain.enums import Role, Permission
+from app.domain.enums import Role, Permission
 
 ROLE_PERMISSIONS: dict[Role, list[Permission]] = {
     Role.ENGINEER: [
