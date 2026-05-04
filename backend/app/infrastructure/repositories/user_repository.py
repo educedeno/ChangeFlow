@@ -1,8 +1,8 @@
-from domain.entities import User
-from domain.enums import Role
-from domain.entities import UserFactory
-import uuid
 
+import uuid
+from app.domain.entities import User, UserFactory
+from app.domain.enums import Role
+from app.infrastructure.auth.password_hasher import hash_password
 
 # Simulated in-memory DB for MVP
 # Replace with real DB later
@@ -12,7 +12,6 @@ _users_db: dict[str, User] = {}
 
 def _seed():
     """Seed one admin user for testing."""
-    from infrastructure.auth.password_hasher import hash_password
     admin = UserFactory.create(
         id=str(uuid.uuid4()),
         name="Admin",

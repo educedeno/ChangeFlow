@@ -1,8 +1,7 @@
-from domain.entities import User
-from infrastructure.repositories.user_repository import UserRepository
-from infrastructure.auth.password_hasher import verify_password
-from infrastructure.auth.token_provider import TokenProvider
-
+from app.domain.entities import User
+from app.infrastructure.repositories.user_repository import UserRepository
+from app.infrastructure.auth.password_hasher import verify_password
+from app.infrastructure.auth.token_provider import TokenProvider
 
 class LoginUseCase:
     def __init__(self):

@@ -1,5 +1,11 @@
 import streamlit as st
+from fastapi import FastAPI
+from api.routes import auth, users
 
+app = FastAPI(title="ChangeFlow API")
+
+app.include_router(auth.router)
+app.include_router(users.router)
 st.set_page_config(
     page_title="ChangeFlow",
     page_icon="🔄",

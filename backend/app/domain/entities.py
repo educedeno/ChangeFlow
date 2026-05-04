@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from domain.enums import Role, Permission
-from domain.value_objects import ROLE_PERMISSIONS
+from app.domain.enums import Role, Permission
+
 
 @dataclass
 class User:
@@ -26,6 +26,8 @@ class UserFactory:
         role: Role,
         is_active: bool = True,
     ) -> User:
+        # Import here to avoid circular import
+        from app.domain.value_objects import ROLE_PERMISSIONS
         permissions = ROLE_PERMISSIONS.get(role, [])
         return User(
             id=id,

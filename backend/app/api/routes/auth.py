@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from application.use_cases.login import LoginUseCase
-
+from app.application.use_cases.login import LoginUseCase
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 

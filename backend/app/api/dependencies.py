@@ -1,8 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from infrastructure.auth.token_provider import TokenProvider
-from domain.enums import Role
-
+from app.infrastructure.auth.token_provider import TokenProvider
+from app.domain.enums import Role
 
 bearer_scheme = HTTPBearer()
 
