@@ -1,8 +1,8 @@
 import uuid
-from domain.entities import UserFactory
-from domain.enums import Role
-from infrastructure.repositories.user_repository import UserRepository
-from infrastructure.auth.password_hasher import hash_password
+from app.domain.entities import UserFactory
+from app.domain.enums import Role
+from app.infrastructure.repositories.user_repository import UserRepository
+from app.infrastructure.auth.password_hasher import hash_password
 
 
 class RegisterUserUseCase:

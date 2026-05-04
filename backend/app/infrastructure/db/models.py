@@ -1,12 +1,4 @@
-"""
-Modelos ORM (SQLAlchemy).
-
-Estos modelos viven en infraestructura, NO en el dominio. Son traducciones
-1-a-1 de las entidades de dominio para persistir en PostgreSQL.
-
-Nota: ChangeRequestModel es un placeholder mínimo. El compañero a cargo de
-la entidad principal puede extenderlo con los campos que necesite.
-"""
+"""Modelos ORM (SQLAlchemy)."""
 
 from datetime import datetime
 from uuid import uuid4
@@ -16,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
 from app.domain.enums import (
+    ApprovalArea,
     ApprovalStatus,
     DecisionAction,
     RequestStatus,
@@ -25,15 +18,13 @@ from app.infrastructure.db.base import Base
 
 
 class ChangeRequestModel(Base):
-    """
-    Modelo placeholder de ChangeRequest. Solo incluye lo que necesita
-    la feature de aprobación. Persona X que maneje la entidad principal
-    puede extender este modelo o reemplazarlo y mantener los campos.
-    """
     __tablename__ = "change_requests"
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     title = Column(String(200), nullable=False, default="")
+    description = Column(Text, nullable=False, default="")
+    affected_system = Column(String(200), nullable=False, default="")
+    requester_id = Column(PGUUID(as_uuid=True), nullable=True)
     status = Column(
         SAEnum(RequestStatus, name="request_status"),
         nullable=False,
@@ -45,7 +36,10 @@ class ChangeRequestModel(Base):
         default=RiskLevel.LOW,
     )
     rollback_plan = Column(Text, nullable=True)
+    failure_reason = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    scheduled_at = Column(DateTime, nullable=True)
+    executed_at = Column(DateTime, nullable=True)
 
 
 class ApprovalModel(Base):
@@ -58,6 +52,10 @@ class ApprovalModel(Base):
         nullable=False,
     )
     reviewer_id = Column(PGUUID(as_uuid=True), nullable=False)
+    area = Column(
+        SAEnum(ApprovalArea, name="approval_area"),
+        nullable=False,
+    )
     status = Column(
         SAEnum(ApprovalStatus, name="approval_status"),
         nullable=False,

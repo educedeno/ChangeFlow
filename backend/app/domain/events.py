@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 
@@ -28,11 +29,34 @@ class RequestSubmitted(DomainEvent):
     request_id: UUID = None
     requester_id: UUID = None
     title: str = ""
+    risk_level: str = ""
+
+
+@dataclass
+class TechReviewRequired(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    title: str = ""
+
+
+@dataclass
+class OpsReviewRequired(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    title: str = ""
+
+
+@dataclass
+class SecurityReviewRequired(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    title: str = ""
 
 
 @dataclass
 class RequestApproved(DomainEvent):
     request_id: UUID = None
+    requester_id: UUID = None
     reviewer_id: UUID = None
     approval_id: UUID = None
 
@@ -40,6 +64,7 @@ class RequestApproved(DomainEvent):
 @dataclass
 class RequestRejected(DomainEvent):
     request_id: UUID = None
+    requester_id: UUID = None
     reviewer_id: UUID = None
     approval_id: UUID = None
     comment: str = ""
@@ -50,11 +75,40 @@ class ReviewerAssigned(DomainEvent):
     request_id: UUID = None
     reviewer_id: UUID = None
     approval_id: UUID = None
+    area: str = ""
 
 
 @dataclass
 class ChangesRequested(DomainEvent):
     request_id: UUID = None
+    requester_id: UUID = None
     reviewer_id: UUID = None
     approval_id: UUID = None
     comment: str = ""
+
+
+@dataclass
+class RequestScheduled(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    scheduled_at: Optional[datetime] = None
+
+
+@dataclass
+class RequestExecuted(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+
+
+@dataclass
+class RequestFailed(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    reason: str = ""
+
+
+@dataclass
+class RequestCancelled(DomainEvent):
+    request_id: UUID = None
+    requester_id: UUID = None
+    actor_id: UUID = None

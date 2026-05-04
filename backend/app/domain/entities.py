@@ -4,10 +4,11 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 from app.domain.enums import (
+    ApprovalArea,
     ApprovalStatus,
-    ChangeStatus,
     DecisionAction,
     Permission,
+    RequestStatus,
     RiskLevel,
     Role,
 )
@@ -22,7 +23,8 @@ class ChangeRequest:
     risk_level: RiskLevel
     requester_id: UUID
     id: UUID = field(default_factory=uuid4)
-    status: ChangeStatus = ChangeStatus.DRAFT
+    status: RequestStatus = RequestStatus.DRAFT
+    rollback_plan: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     scheduled_at: Optional[datetime] = None
     executed_at: Optional[datetime] = None
@@ -37,13 +39,11 @@ class ChangeRequest:
             raise ValueError("affected_system is required")
         if not isinstance(self.risk_level, RiskLevel):
             raise ValueError("risk_level must be a valid RiskLevel")
-        if not isinstance(self.status, ChangeStatus):
-            raise ValueError("status must be a valid ChangeStatus")
+        if not isinstance(self.status, RequestStatus):
+            raise ValueError("status must be a valid RequestStatus")
 
-    def submit(self) -> None:
-        if self.status != ChangeStatus.DRAFT:
-            raise ValueError("Only draft requests can be submitted")
-        self.status = ChangeStatus.SUBMITTED
+    def has_rollback_plan(self) -> bool:
+        return bool(self.rollback_plan and self.rollback_plan.strip())
 
 
 @dataclass
@@ -84,12 +84,10 @@ class UserFactory:
 
 @dataclass
 class Approval:
-    """
-    Representa una aprobación asignada a un reviewer para una solicitud de cambio.
-    Una solicitud puede tener múltiples Approvals (ej: cambios HIGH risk requieren 2).
-    """
+    """Aprobación asignada a un reviewer para un área concreta de revisión."""
     request_id: UUID
     reviewer_id: UUID
+    area: ApprovalArea
     id: UUID = field(default_factory=uuid4)
     status: ApprovalStatus = ApprovalStatus.PENDING
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -117,10 +115,6 @@ class Approval:
 
 @dataclass
 class Decision:
-    """
-    Representa la decisión concreta tomada por un reviewer sobre una Approval.
-    Guarda el detalle de la acción y el comentario asociado.
-    """
     approval_id: UUID
     action: DecisionAction
     id: UUID = field(default_factory=uuid4)
@@ -128,7 +122,6 @@ class Decision:
     decided_at: datetime = field(default_factory=datetime.utcnow)
 
     def __post_init__(self):
-        # Regla de negocio: rechazar o pedir cambios requiere comentario
         if self.action in (DecisionAction.REJECT, DecisionAction.REQUEST_CHANGES):
             if not self.comment or not self.comment.strip():
                 raise ValueError(
@@ -138,7 +131,6 @@ class Decision:
 
 @dataclass
 class Notification:
-    """Notificación generada para un usuario cuando ocurre un evento relevante."""
     user_id: str
     message: str
     event_type: str
@@ -152,7 +144,6 @@ class Notification:
 
 @dataclass
 class AuditEntry:
-    """Registro inmutable de una acción importante en el sistema."""
     actor_id: str
     action: str
     entity_type: str

@@ -1,50 +1,33 @@
 """
-Patrón Strategy: política de aprobación según risk level.
-
-Diferentes niveles de riesgo requieren diferentes reglas de aprobación.
-En lugar de hardcodear if/else en los casos de uso, encapsulamos cada
-estrategia en su propia clase.
+Strategy: política de aprobación según risk level. Define qué áreas
+deben aprobar para que la solicitud pueda avanzar a APPROVED.
 """
 
 from abc import ABC, abstractmethod
 
-from app.domain.enums import RiskLevel
+from app.domain.enums import ApprovalArea, RiskLevel
+from app.domain.value_objects import RISK_REQUIRED_AREAS
 
 
 class ApprovalPolicy(ABC):
-    """Strategy base. Define cuántas aprobaciones se necesitan."""
-
     @abstractmethod
-    def required_approvals(self) -> int:
+    def required_areas(self) -> list[ApprovalArea]:
         ...
 
-    @abstractmethod
-    def is_satisfied(self, current_approvals: int) -> bool:
-        ...
-
-
-class SingleApprovalPolicy(ApprovalPolicy):
-    """Política para LOW y MEDIUM risk: una sola aprobación basta."""
-
     def required_approvals(self) -> int:
-        return 1
+        return len(self.required_areas())
 
-    def is_satisfied(self, current_approvals: int) -> bool:
-        return current_approvals >= 1
+    def is_satisfied(self, approved_areas: set[ApprovalArea]) -> bool:
+        return set(self.required_areas()).issubset(approved_areas)
 
 
-class DualApprovalPolicy(ApprovalPolicy):
-    """Política para HIGH risk: requiere dos aprobaciones independientes."""
+class _AreasPolicy(ApprovalPolicy):
+    def __init__(self, areas: list[ApprovalArea]):
+        self._areas = areas
 
-    def required_approvals(self) -> int:
-        return 2
-
-    def is_satisfied(self, current_approvals: int) -> bool:
-        return current_approvals >= 2
+    def required_areas(self) -> list[ApprovalArea]:
+        return list(self._areas)
 
 
 def policy_for(risk_level: RiskLevel) -> ApprovalPolicy:
-    """Factory que devuelve la policy adecuada según el risk level."""
-    if risk_level == RiskLevel.HIGH:
-        return DualApprovalPolicy()
-    return SingleApprovalPolicy()
+    return _AreasPolicy(RISK_REQUIRED_AREAS[risk_level])

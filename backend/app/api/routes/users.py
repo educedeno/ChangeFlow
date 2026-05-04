@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from domain.enums import Role
-from application.use_cases.register_user import RegisterUserUseCase
-from infrastructure.repositories.user_repository import UserRepository
-from api.dependencies import get_current_user, require_role
+from app.domain.enums import Role
+from app.application.use_cases.register_user import RegisterUserUseCase
+from app.infrastructure.repositories.user_repository import UserRepository
+from app.api.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -100,7 +100,7 @@ def delete_user(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
 
-from application.use_cases.assign_role import AssignRoleUseCase
+from app.application.use_cases.assign_role import AssignRoleUseCase
 
 class AssignRoleRequest(BaseModel):
     role: Role

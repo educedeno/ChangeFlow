@@ -1,4 +1,4 @@
-"""Implementación concreta de ApprovalRepository usando SQLAlchemy."""
+"""Implementación de ApprovalRepository usando SQLAlchemy."""
 
 from typing import List, Optional
 from uuid import UUID
@@ -6,18 +6,14 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.domain.entities import Approval, Decision
-from app.domain.enums import ApprovalStatus
+from app.domain.enums import ApprovalArea, ApprovalStatus
 from app.domain.repositories import ApprovalRepository
 from app.infrastructure.db.models import ApprovalModel, DecisionModel
 
 
 class SQLAlchemyApprovalRepository(ApprovalRepository):
-    """Adapter concreto: convierte entre entidades de dominio y modelos ORM."""
-
     def __init__(self, session: Session):
         self.session = session
-
-    # ----- mappers -----
 
     @staticmethod
     def _to_entity(model: ApprovalModel) -> Approval:
@@ -25,6 +21,7 @@ class SQLAlchemyApprovalRepository(ApprovalRepository):
             id=model.id,
             request_id=model.request_id,
             reviewer_id=model.reviewer_id,
+            area=model.area,
             status=model.status,
             created_at=model.created_at,
             decided_at=model.decided_at,
@@ -36,12 +33,11 @@ class SQLAlchemyApprovalRepository(ApprovalRepository):
             id=entity.id,
             request_id=entity.request_id,
             reviewer_id=entity.reviewer_id,
+            area=entity.area,
             status=entity.status,
             created_at=entity.created_at,
             decided_at=entity.decided_at,
         )
-
-    # ----- métodos del puerto -----
 
     def get_by_id(self, approval_id: UUID) -> Optional[Approval]:
         model = self.session.get(ApprovalModel, approval_id)
@@ -70,6 +66,7 @@ class SQLAlchemyApprovalRepository(ApprovalRepository):
         existing = self.session.get(ApprovalModel, approval.id)
         if existing:
             existing.status = approval.status
+            existing.area = approval.area
             existing.decided_at = approval.decided_at
         else:
             self.session.add(self._to_model(approval))
@@ -88,12 +85,13 @@ class SQLAlchemyApprovalRepository(ApprovalRepository):
         self.session.commit()
         return decision
 
-    def count_approved_for_request(self, request_id: UUID) -> int:
-        return (
-            self.session.query(ApprovalModel)
+    def approved_areas_for_request(self, request_id: UUID) -> set[ApprovalArea]:
+        rows = (
+            self.session.query(ApprovalModel.area)
             .filter(
                 ApprovalModel.request_id == request_id,
                 ApprovalModel.status == ApprovalStatus.APPROVED,
             )
-            .count()
+            .all()
         )
+        return {r[0] for r in rows}

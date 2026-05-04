@@ -2,30 +2,30 @@ import pytest
 from uuid import uuid4
 
 from app.domain.entities import Approval, Decision
-from app.domain.enums import ApprovalStatus, DecisionAction
+from app.domain.enums import ApprovalArea, ApprovalStatus, DecisionAction
 
 
 class TestApproval:
     def test_approval_starts_pending(self):
-        approval = Approval(request_id=uuid4(), reviewer_id=uuid4())
+        approval = Approval(request_id=uuid4(), reviewer_id=uuid4(), area=ApprovalArea.TECH)
         assert approval.status == ApprovalStatus.PENDING
         assert approval.is_pending()
         assert approval.decided_at is None
 
     def test_mark_approved_changes_status(self):
-        approval = Approval(request_id=uuid4(), reviewer_id=uuid4())
+        approval = Approval(request_id=uuid4(), reviewer_id=uuid4(), area=ApprovalArea.TECH)
         approval.mark_approved()
         assert approval.status == ApprovalStatus.APPROVED
         assert approval.decided_at is not None
 
     def test_cannot_approve_twice(self):
-        approval = Approval(request_id=uuid4(), reviewer_id=uuid4())
+        approval = Approval(request_id=uuid4(), reviewer_id=uuid4(), area=ApprovalArea.TECH)
         approval.mark_approved()
         with pytest.raises(ValueError):
             approval.mark_approved()
 
     def test_cannot_reject_already_approved(self):
-        approval = Approval(request_id=uuid4(), reviewer_id=uuid4())
+        approval = Approval(request_id=uuid4(), reviewer_id=uuid4(), area=ApprovalArea.TECH)
         approval.mark_approved()
         with pytest.raises(ValueError):
             approval.mark_rejected()

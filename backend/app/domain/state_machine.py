@@ -1,174 +1,254 @@
 r"""
-Máquina de estados para solicitudes de cambio en ChangeFlow.
+Máquina de estados para solicitudes de cambio.
 
-Implementa el patrón State: cada estado es una clase que conoce sus
-transiciones válidas. Las transiciones inválidas lanzan
-InvalidStateTransitionError.
-
-Ciclo de vida:
-    DRAFT -> SUBMITTED -> IN_REVIEW -> APPROVED -> COMPLETED
-                                    \-> REJECTED
-                                    \-> CHANGES_REQUESTED -> SUBMITTED (vuelve)
+Flujo principal:
+    DRAFT -> SUBMITTED -> TECH_REVIEW -> OPS_REVIEW -> SECURITY_REVIEW
+          -> APPROVED -> SCHEDULED -> EXECUTED
+                                  \-> FAILED
+    Desde TECH_REVIEW/OPS_REVIEW/SECURITY_REVIEW también:
+       \-> REJECTED
+       \-> CHANGES_REQUESTED -> SUBMITTED
+    Cancelación válida desde DRAFT/SUBMITTED/*REVIEW/CHANGES_REQUESTED:
+       \-> CANCELLED
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from abc import ABC
 
-from app.domain.enums import RequestStatus, RiskLevel
+from app.domain.enums import ApprovalArea, RequestStatus, RiskLevel
 from app.domain.exceptions import (
-    InvalidStateTransitionError,
     BusinessRuleViolationError,
+    InvalidStateTransitionError,
 )
+from app.domain.policies import policy_for
 
-if TYPE_CHECKING:
-    # Solo para type hints, evita circular imports
-    pass
-
-
-class RequestState(ABC):
-    """Clase base abstracta para todos los estados de una solicitud."""
-
-    status: RequestStatus  # cada subclase define su status
-
-    def submit(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se puede hacer submit desde el estado {self.status.value}"
-        )
-
-    def start_review(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se puede iniciar review desde el estado {self.status.value}"
-        )
-
-    def approve(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se puede aprobar desde el estado {self.status.value}"
-        )
-
-    def reject(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se puede rechazar desde el estado {self.status.value}"
-        )
-
-    def request_changes(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se pueden solicitar cambios desde el estado {self.status.value}"
-        )
-
-    def complete(self, context: "ChangeRequestContext") -> "RequestState":
-        raise InvalidStateTransitionError(
-            f"No se puede completar desde el estado {self.status.value}"
-        )
-
-
-class DraftState(RequestState):
-    status = RequestStatus.DRAFT
-
-    def submit(self, context: "ChangeRequestContext") -> "RequestState":
-        # Regla de negocio: HIGH risk requiere plan de rollback al hacer submit
-        if context.risk_level == RiskLevel.HIGH and not context.has_rollback_plan:
-            raise BusinessRuleViolationError(
-                "Cambios HIGH risk requieren plan de rollback antes de submit."
-            )
-        return SubmittedState()
-
-
-class SubmittedState(RequestState):
-    status = RequestStatus.SUBMITTED
-
-    def start_review(self, context: "ChangeRequestContext") -> "RequestState":
-        return InReviewState()
-
-    def reject(self, context: "ChangeRequestContext") -> "RequestState":
-        # Permitir rechazo directo si el aprobador lo hace antes de empezar review
-        return RejectedState()
-
-
-class InReviewState(RequestState):
-    status = RequestStatus.IN_REVIEW
-
-    def approve(self, context: "ChangeRequestContext") -> "RequestState":
-        # Regla de negocio: HIGH risk requiere 2 aprobaciones
-        required = 2 if context.risk_level == RiskLevel.HIGH else 1
-        if context.approvals_count < required:
-            raise BusinessRuleViolationError(
-                f"Cambios {context.risk_level.value} requieren "
-                f"{required} aprobación(es). Actuales: {context.approvals_count}"
-            )
-        return ApprovedState()
-
-    def reject(self, context: "ChangeRequestContext") -> "RequestState":
-        return RejectedState()
-
-    def request_changes(self, context: "ChangeRequestContext") -> "RequestState":
-        return ChangesRequestedState()
-
-
-class ChangesRequestedState(RequestState):
-    status = RequestStatus.CHANGES_REQUESTED
-
-    def submit(self, context: "ChangeRequestContext") -> "RequestState":
-        # El solicitante corrige y vuelve a enviar
-        return SubmittedState()
-
-
-class ApprovedState(RequestState):
-    status = RequestStatus.APPROVED
-
-    def complete(self, context: "ChangeRequestContext") -> "RequestState":
-        return CompletedState()
-
-
-class RejectedState(RequestState):
-    """Estado terminal: una solicitud rechazada no se puede reabrir."""
-    status = RequestStatus.REJECTED
-
-
-class CompletedState(RequestState):
-    """Estado terminal: una solicitud completada no cambia más."""
-    status = RequestStatus.COMPLETED
-
-
-# ---------------------------------------------------------------------------
-# Context: lo que la máquina de estados necesita saber para decidir
-# ---------------------------------------------------------------------------
 
 class ChangeRequestContext:
-    """
-    Contexto que se pasa a los estados para evaluar reglas de negocio.
-    Es un DTO interno del dominio, no expone la entidad completa.
-    """
+    """Contexto que la máquina necesita para evaluar reglas."""
 
     def __init__(
         self,
         risk_level: RiskLevel,
         has_rollback_plan: bool = False,
-        approvals_count: int = 0,
+        approved_areas: set[ApprovalArea] | None = None,
+        approving_area: ApprovalArea | None = None,
     ):
         self.risk_level = risk_level
         self.has_rollback_plan = has_rollback_plan
-        self.approvals_count = approvals_count
+        self.approved_areas = approved_areas or set()
+        self.approving_area = approving_area
 
 
-# ---------------------------------------------------------------------------
-# Factory para reconstruir estados desde un RequestStatus persistido
-# ---------------------------------------------------------------------------
+class RequestState(ABC):
+    status: RequestStatus
+
+    def submit(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede hacer submit desde el estado {self.status.value}"
+        )
+
+    def approve(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede aprobar desde el estado {self.status.value}"
+        )
+
+    def reject(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede rechazar desde el estado {self.status.value}"
+        )
+
+    def request_changes(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se pueden solicitar cambios desde el estado {self.status.value}"
+        )
+
+    def schedule(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede agendar desde el estado {self.status.value}"
+        )
+
+    def execute(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede ejecutar desde el estado {self.status.value}"
+        )
+
+    def fail(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede marcar como fallido desde el estado {self.status.value}"
+        )
+
+    def cancel(self, context: ChangeRequestContext) -> "RequestState":
+        raise InvalidStateTransitionError(
+            f"No se puede cancelar desde el estado {self.status.value}"
+        )
+
+
+def _validate_rollback(context: ChangeRequestContext) -> None:
+    if context.risk_level in (RiskLevel.MEDIUM, RiskLevel.HIGH):
+        if not context.has_rollback_plan:
+            raise BusinessRuleViolationError(
+                f"Cambios {context.risk_level.value} requieren plan de rollback."
+            )
+
+
+def _next_review_state(context: ChangeRequestContext) -> "RequestState":
+    """Decide a qué estado de review pasar tras hacer submit."""
+    return TechReviewState()
+
+
+def _advance_after_approval(context: ChangeRequestContext) -> "RequestState":
+    """Avanza al siguiente estado tras una aprobación de área."""
+    policy = policy_for(context.risk_level)
+    if policy.is_satisfied(context.approved_areas):
+        return ApprovedState()
+
+    pending = [a for a in policy.required_areas() if a not in context.approved_areas]
+    next_area = pending[0]
+    return _state_for_area(next_area)
+
+
+def _state_for_area(area: ApprovalArea) -> "RequestState":
+    if area == ApprovalArea.TECH:
+        return TechReviewState()
+    if area == ApprovalArea.OPS:
+        return OpsReviewState()
+    if area == ApprovalArea.SECURITY:
+        return SecurityReviewState()
+    raise ValueError(f"Área desconocida: {area}")
+
+
+class DraftState(RequestState):
+    status = RequestStatus.DRAFT
+
+    def submit(self, context: ChangeRequestContext) -> RequestState:
+        _validate_rollback(context)
+        return TechReviewState()
+
+    def cancel(self, context: ChangeRequestContext) -> RequestState:
+        return CancelledState()
+
+
+class SubmittedState(RequestState):
+    """Estado breve entre DRAFT y TECH_REVIEW. Se mantiene por compatibilidad."""
+    status = RequestStatus.SUBMITTED
+
+    def approve(self, context: ChangeRequestContext) -> RequestState:
+        return _advance_after_approval(context)
+
+    def reject(self, context: ChangeRequestContext) -> RequestState:
+        return RejectedState()
+
+    def cancel(self, context: ChangeRequestContext) -> RequestState:
+        return CancelledState()
+
+
+class _ReviewState(RequestState):
+    expected_area: ApprovalArea
+
+    def approve(self, context: ChangeRequestContext) -> RequestState:
+        if context.approving_area != self.expected_area:
+            raise BusinessRuleViolationError(
+                f"En {self.status.value} solo puede aprobar el área "
+                f"{self.expected_area.value}."
+            )
+        return _advance_after_approval(context)
+
+    def reject(self, context: ChangeRequestContext) -> RequestState:
+        return RejectedState()
+
+    def request_changes(self, context: ChangeRequestContext) -> RequestState:
+        return ChangesRequestedState()
+
+    def cancel(self, context: ChangeRequestContext) -> RequestState:
+        return CancelledState()
+
+
+class TechReviewState(_ReviewState):
+    status = RequestStatus.TECH_REVIEW
+    expected_area = ApprovalArea.TECH
+
+
+class OpsReviewState(_ReviewState):
+    status = RequestStatus.OPS_REVIEW
+    expected_area = ApprovalArea.OPS
+
+
+class SecurityReviewState(_ReviewState):
+    status = RequestStatus.SECURITY_REVIEW
+    expected_area = ApprovalArea.SECURITY
+
+
+class ChangesRequestedState(RequestState):
+    status = RequestStatus.CHANGES_REQUESTED
+
+    def submit(self, context: ChangeRequestContext) -> RequestState:
+        _validate_rollback(context)
+        return TechReviewState()
+
+    def cancel(self, context: ChangeRequestContext) -> RequestState:
+        return CancelledState()
+
+
+class ApprovedState(RequestState):
+    status = RequestStatus.APPROVED
+
+    def schedule(self, context: ChangeRequestContext) -> RequestState:
+        return ScheduledState()
+
+
+class ScheduledState(RequestState):
+    status = RequestStatus.SCHEDULED
+
+    def execute(self, context: ChangeRequestContext) -> RequestState:
+        return ExecutedState()
+
+    def fail(self, context: ChangeRequestContext) -> RequestState:
+        return FailedState()
+
+
+class ExecutedState(RequestState):
+    """Terminal: una solicitud ejecutada no vuelve a revisión."""
+    status = RequestStatus.EXECUTED
+
+
+class FailedState(RequestState):
+    """Terminal: el cambio falló al ejecutarse."""
+    status = RequestStatus.FAILED
+
+
+class RejectedState(RequestState):
+    """Terminal."""
+    status = RequestStatus.REJECTED
+
+
+class CancelledState(RequestState):
+    """Terminal."""
+    status = RequestStatus.CANCELLED
+
 
 _STATE_REGISTRY: dict[RequestStatus, type[RequestState]] = {
     RequestStatus.DRAFT: DraftState,
     RequestStatus.SUBMITTED: SubmittedState,
-    RequestStatus.IN_REVIEW: InReviewState,
+    RequestStatus.TECH_REVIEW: TechReviewState,
+    RequestStatus.OPS_REVIEW: OpsReviewState,
+    RequestStatus.SECURITY_REVIEW: SecurityReviewState,
     RequestStatus.CHANGES_REQUESTED: ChangesRequestedState,
     RequestStatus.APPROVED: ApprovedState,
+    RequestStatus.SCHEDULED: ScheduledState,
+    RequestStatus.EXECUTED: ExecutedState,
+    RequestStatus.FAILED: FailedState,
     RequestStatus.REJECTED: RejectedState,
-    RequestStatus.COMPLETED: CompletedState,
+    RequestStatus.CANCELLED: CancelledState,
 }
 
 
 def state_from_status(status: RequestStatus) -> RequestState:
-    """Reconstruye una instancia de estado desde un RequestStatus."""
     state_class = _STATE_REGISTRY.get(status)
     if state_class is None:
         raise ValueError(f"Estado desconocido: {status}")
     return state_class()
+
+
+# Alias retro-compatibles para que tests viejos no se rompan al importar.
+InReviewState = TechReviewState
+CompletedState = ExecutedState

@@ -1,4 +1,4 @@
-"""Caso de uso: rechazar una Approval. Tumba la solicitud."""
+"""Caso de uso: solicitar cambios sobre una solicitud en revisión."""
 
 from uuid import UUID
 
@@ -7,7 +7,7 @@ from app.application.services.event_bus import EventBus
 from app.application.use_cases.approve_request import _role_covers_area
 from app.domain.entities import Decision
 from app.domain.enums import DecisionAction
-from app.domain.events import RequestRejected
+from app.domain.events import ChangesRequested
 from app.domain.exceptions import (
     BusinessRuleViolationError,
     InvalidStateTransitionError,
@@ -20,7 +20,7 @@ from app.domain.state_machine import (
 from app.infrastructure.repositories.user_repository import UserRepository
 
 
-class RejectRequestUseCase:
+class RequestChangesUseCase:
     def __init__(
         self,
         approval_repo: ApprovalRepository,
@@ -36,13 +36,12 @@ class RejectRequestUseCase:
     def run(self, approval_id: UUID, reviewer_id: UUID, comment: str) -> CommandResult:
         if not comment or not comment.strip():
             return CommandResult(
-                success=False, message="El rechazo requiere un comentario."
+                success=False, message="Solicitar cambios requiere un comentario."
             )
 
         approval = self.approval_repo.get_by_id(approval_id)
         if approval is None:
             return CommandResult(success=False, message="Approval no encontrada.")
-
         if approval.reviewer_id != reviewer_id:
             return CommandResult(
                 success=False,
@@ -51,26 +50,7 @@ class RejectRequestUseCase:
 
         reviewer = self.user_repo.get_by_id(str(reviewer_id))
         if reviewer is None or not _role_covers_area(reviewer.role, approval.area):
-            return CommandResult(
-                success=False,
-                message=(
-                    f"No autorizado: el área {approval.area.value} requiere un rol distinto."
-                ),
-            )
-
-        try:
-            approval.mark_rejected()
-        except ValueError as e:
-            return CommandResult(success=False, message=str(e))
-
-        self.approval_repo.save(approval)
-        self.approval_repo.save_decision(
-            Decision(
-                approval_id=approval.id,
-                action=DecisionAction.REJECT,
-                comment=comment,
-            )
-        )
+            return CommandResult(success=False, message="No autorizado para esta área.")
 
         cr = self.request_repo.get_by_id(approval.request_id)
         if cr is None:
@@ -79,13 +59,20 @@ class RejectRequestUseCase:
         state = state_from_status(cr.status)
         ctx = ChangeRequestContext(risk_level=cr.risk_level)
         try:
-            new_state = state.reject(ctx)
+            new_state = state.request_changes(ctx)
         except (InvalidStateTransitionError, BusinessRuleViolationError) as e:
             return CommandResult(success=False, message=str(e))
 
-        self.request_repo.update_status(approval.request_id, new_state.status)
+        self.approval_repo.save_decision(
+            Decision(
+                approval_id=approval.id,
+                action=DecisionAction.REQUEST_CHANGES,
+                comment=comment,
+            )
+        )
+        self.request_repo.update_status(cr.id, new_state.status)
 
-        self.event_bus.publish(RequestRejected(
+        self.event_bus.publish(ChangesRequested(
             request_id=cr.id,
             requester_id=cr.requester_id,
             reviewer_id=approval.reviewer_id,
@@ -95,6 +82,6 @@ class RejectRequestUseCase:
 
         return CommandResult(
             success=True,
-            message="Solicitud rechazada.",
+            message="Cambios solicitados al solicitante.",
             data={"new_status": new_state.status.value},
         )

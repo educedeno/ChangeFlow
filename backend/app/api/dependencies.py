@@ -1,6 +1,4 @@
-"""
-Dependencies de FastAPI: inyección de repositorios, casos de uso y usuario actual.
-"""
+"""Dependencies de FastAPI: inyección de repos, casos de uso y usuario actual."""
 
 from uuid import UUID
 
@@ -10,7 +8,15 @@ from sqlalchemy.orm import Session
 
 from app.application.use_cases.approve_request import ApproveRequestUseCase
 from app.application.use_cases.assign_reviewer import AssignReviewerUseCase
+from app.application.use_cases.cancel_request import CancelRequestUseCase
+from app.application.use_cases.create_change_request import CreateChangeRequestUseCase
+from app.application.use_cases.execute_request import ExecuteRequestUseCase, MarkFailedUseCase
+from app.application.use_cases.get_change_request import GetChangeRequestUseCase
+from app.application.use_cases.list_change_requests import ListChangeRequestsUseCase
 from app.application.use_cases.reject_request import RejectRequestUseCase
+from app.application.use_cases.request_changes import RequestChangesUseCase
+from app.application.use_cases.schedule_request import ScheduleRequestUseCase
+from app.application.use_cases.submit_request import SubmitRequestUseCase
 from app.domain.enums import Role
 from app.infrastructure.auth.token_provider import TokenProvider
 from app.infrastructure.db.session import get_db
@@ -36,8 +42,6 @@ def get_change_request_repo(db: Session = Depends(get_db)):
     return SQLAlchemyChangeRequestRepository(db)
 
 
-# ---- Repositorios de notificaciones y auditoría ----
-
 def get_notification_repo(db: Session = Depends(get_db)):
     return SQLAlchemyNotificationRepository(db)
 
@@ -46,7 +50,33 @@ def get_audit_repo(db: Session = Depends(get_db)):
     return SQLAlchemyAuditRepository(db)
 
 
+# Alias usado por las rutas de creación/listado de requests.
+def get_change_request_repository(db: Session = Depends(get_db)):
+    return SQLAlchemyChangeRequestRepository(db)
+
+
 # ---- Casos de uso ----
+
+def get_create_use_case(
+    request_repo=Depends(get_change_request_repo),
+):
+    return CreateChangeRequestUseCase(request_repo)
+
+
+def get_list_use_case(request_repo=Depends(get_change_request_repo)):
+    return ListChangeRequestsUseCase(request_repo)
+
+
+def get_get_use_case(request_repo=Depends(get_change_request_repo)):
+    return GetChangeRequestUseCase(request_repo)
+
+
+def get_submit_use_case(
+    request_repo=Depends(get_change_request_repo),
+    approval_repo=Depends(get_approval_repo),
+):
+    return SubmitRequestUseCase(request_repo, approval_repo)
+
 
 def get_approve_use_case(
     approval_repo=Depends(get_approval_repo),
@@ -62,6 +92,13 @@ def get_reject_use_case(
     return RejectRequestUseCase(approval_repo, request_repo)
 
 
+def get_request_changes_use_case(
+    approval_repo=Depends(get_approval_repo),
+    request_repo=Depends(get_change_request_repo),
+):
+    return RequestChangesUseCase(approval_repo, request_repo)
+
+
 def get_assign_use_case(
     approval_repo=Depends(get_approval_repo),
     request_repo=Depends(get_change_request_repo),
@@ -69,14 +106,26 @@ def get_assign_use_case(
     return AssignReviewerUseCase(approval_repo, request_repo)
 
 
-# ---- Usuario actual (placeholder) ----
+def get_cancel_use_case(request_repo=Depends(get_change_request_repo)):
+    return CancelRequestUseCase(request_repo)
+
+
+def get_schedule_use_case(request_repo=Depends(get_change_request_repo)):
+    return ScheduleRequestUseCase(request_repo)
+
+
+def get_execute_use_case(request_repo=Depends(get_change_request_repo)):
+    return ExecuteRequestUseCase(request_repo)
+
+
+def get_fail_use_case(request_repo=Depends(get_change_request_repo)):
+    return MarkFailedUseCase(request_repo)
+
+
+# ---- Usuario actual ----
 
 def get_current_user_id(x_user_id: str = Header(None)) -> UUID:
-    """
-    Placeholder de autenticación. Cuando se implemente JWT, esto se
-    reemplaza por una dependencia que decodifique el token.
-    Por ahora, espera el header X-User-Id.
-    """
+    """Placeholder de auth: lee X-User-Id. Para JWT, usar get_current_user."""
     if not x_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,41 +138,31 @@ def get_current_user_id(x_user_id: str = Header(None)) -> UUID:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-User-Id no es un UUID válido.",
         )
-def get_change_request_repository():
-    class FakeRepository:
-        def __init__(self):
-            self.data = []
-
-        def save(self, change_request):
-            self.data.append(change_request)
-
-        def get_all(self):
-            return self.data
-
-        def get_by_id(self, request_id):
-            for cr in self.data:
-                if cr.id == request_id:
-                    return cr
-            return None
-
-    return FakeRepository()
 
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
 ) -> dict:
-    token = credentials.credentials
-    try:
-        payload = TokenProvider().decode_token(token)
-        return payload  # {"sub": user_id, "email": ..., "role": ...}
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado",
-        )
+    """Acepta JWT (Bearer) o X-User-Id como fallback para el MVP."""
+    if credentials is not None:
+        try:
+            payload = TokenProvider().decode_token(credentials.credentials)
+            return payload
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado",
+            )
+    if x_user_id:
+        return {"sub": x_user_id, "email": None, "role": None}
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No autenticado.",
+    )
 
 
 def require_role(*allowed_roles: Role):

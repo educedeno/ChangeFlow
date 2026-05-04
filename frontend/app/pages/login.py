@@ -1,7 +1,10 @@
+import os
+from uuid import UUID
+
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_BASE_URL", "http://backend:8000")
 
 st.set_page_config(page_title="Login — ChangeFlow", page_icon="🔐")
 st.title("🔐 Iniciar sesión")
@@ -11,6 +14,7 @@ if st.session_state.get("token"):
     if st.button("Cerrar sesión"):
         st.session_state.token = None
         st.session_state.user = None
+        st.session_state.pop("user_id", None)
         st.rerun()
 else:
     with st.form("login_form"):
@@ -33,7 +37,13 @@ else:
                     st.session_state.user = {
                         "name": data["name"],
                         "role": data["role"],
+                        "id": data.get("id"),
                     }
+                    if data.get("id"):
+                        try:
+                            st.session_state.user_id = UUID(data["id"])
+                        except (ValueError, TypeError):
+                            pass
                     st.success(f"Bienvenido, {data['name']}!")
                     st.rerun()
                 else:

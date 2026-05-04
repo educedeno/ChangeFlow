@@ -1,26 +1,37 @@
-from domain.entities import User
-from domain.enums import Role
-from domain.entities import UserFactory
 import uuid
 
+from app.domain.entities import User, UserFactory
+from app.domain.enums import Role
 
-# Simulated in-memory DB for MVP
-# Replace with real DB later
+
+# Base de datos en memoria (MVP). El seed cubre un usuario por cada rol
+# para que las pruebas del flujo completo (LOW/MEDIUM/HIGH) sean posibles.
 
 _users_db: dict[str, User] = {}
 
 
 def _seed():
-    """Seed one admin user for testing."""
-    from infrastructure.auth.password_hasher import hash_password
-    admin = UserFactory.create(
-        id=str(uuid.uuid4()),
-        name="Admin",
-        email="admin@changeflow.com",
-        hashed_password=hash_password("admin1234"),
-        role=Role.ADMIN,
-    )
-    _users_db[admin.email] = admin
+    from app.infrastructure.auth.password_hasher import hash_password
+
+    seeds = [
+        ("Admin", "admin@changeflow.com", "admin1234", Role.ADMIN),
+        ("Engineer", "engineer@changeflow.com", "engineer1234", Role.ENGINEER),
+        ("Tech Lead", "techlead@changeflow.com", "techlead1234", Role.TECH_LEAD),
+        ("Ops Reviewer", "ops@changeflow.com", "ops1234", Role.OPS_REVIEWER),
+        ("Security Reviewer", "security@changeflow.com", "security1234", Role.SECURITY_REVIEWER),
+    ]
+    for name, email, pwd, role in seeds:
+        if email in _users_db:
+            continue
+        user = UserFactory.create(
+            id=str(uuid.uuid4()),
+            name=name,
+            email=email,
+            hashed_password=hash_password(pwd),
+            role=role,
+        )
+        _users_db[user.email] = user
+
 
 _seed()
 
@@ -34,6 +45,13 @@ class UserRepository:
             if user.id == user_id:
                 return user
         return None
+
+    def get_by_role(self, role: Role) -> list[User]:
+        return [u for u in _users_db.values() if u.role == role and u.is_active]
+
+    def first_by_role(self, role: Role) -> User | None:
+        users = self.get_by_role(role)
+        return users[0] if users else None
 
     def save(self, user: User) -> User:
         _users_db[user.email] = user
