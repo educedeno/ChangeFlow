@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import (
+    get_approval_repo,
     get_approve_use_case,
     get_assign_use_case,
     get_cancel_use_case,
@@ -80,6 +81,30 @@ def create_request(
 @router.get("/", response_model=list[ChangeRequestView])
 def list_requests(use_case: ListChangeRequestsUseCase = Depends(get_list_use_case)):
     return [ChangeRequestView(**o.__dict__) for o in use_case.execute()]
+
+
+# Endpoint que el frontend usa para mostrar la bandeja del aprobador.
+@router.get("/approvals/mine")
+def my_pending_approvals(
+    current_user: UUID = Depends(get_current_user_id),
+    approval_repo=Depends(get_approval_repo),
+    request_repo=Depends(get_change_request_repo),
+):
+    pending = approval_repo.list_pending_for_reviewer(current_user)
+    out = []
+    for ap in pending:
+        cr = request_repo.get_by_id(ap.request_id)
+        out.append({
+            "approval_id": str(ap.id),
+            "request_id": str(ap.request_id),
+            "area": ap.area.value,
+            "status": ap.status.value,
+            "request_title": cr.title if cr else None,
+            "request_status": cr.status.value if cr else None,
+            "risk_level": cr.risk_level.value if cr else None,
+            "created_at": ap.created_at.isoformat() if ap.created_at else None,
+        })
+    return out
 
 
 @router.get("/{request_id}", response_model=ChangeRequestView)

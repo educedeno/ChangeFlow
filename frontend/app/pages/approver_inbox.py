@@ -1,4 +1,4 @@
-"""Bandeja del aprobador: aprobar / rechazar / solicitar cambios."""
+"""Bandeja del aprobador: lista de approvals pendientes con acciones."""
 
 import sys
 from pathlib import Path
@@ -22,46 +22,56 @@ if "user_id" not in st.session_state:
 
 client = ApiClient(user_id=st.session_state.user_id, token=st.session_state.get("token"))
 
-st.caption(
-    "Pega el ID de una Approval asignada a ti. La API valida que tu rol "
-    "cubra el área (TECH/OPS/SECURITY) antes de aceptar la decisión."
-)
+ok, msg, items = client.my_pending_approvals()
+if not ok:
+    st.error(msg)
+    st.stop()
 
-approval_id_str = st.text_input("Approval ID", key="approval_id_input")
+if not items:
+    st.info("No tienes approvals pendientes.")
+    st.stop()
 
-if approval_id_str:
-    try:
-        approval_id = UUID(approval_id_str)
-    except ValueError:
-        st.error("UUID inválido.")
-        st.stop()
+st.caption(f"{len(items)} approval(es) pendiente(s)")
 
-    col1, col2, col3 = st.columns(3)
+for ap in items:
+    aid = ap["approval_id"]
+    with st.container(border=True):
+        st.subheader(f"{ap.get('request_title') or '(sin título)'}")
+        st.caption(
+            f"Área: **{ap['area']}**  ·  Riesgo: {ap.get('risk_level')}  ·  "
+            f"Estado solicitud: `{ap.get('request_status')}`"
+        )
+        st.caption(f"Approval ID: `{aid}`  ·  Request ID: `{ap['request_id']}`")
 
-    with col1:
-        if st.button("✅ Aprobar", use_container_width=True):
-            ok, msg, _ = client.approve(approval_id)
-            (st.success if ok else st.error)(msg)
+        col1, col2, col3 = st.columns(3)
 
-    with col2:
-        with st.expander("❌ Rechazar"):
-            reject_comment = st.text_area("Motivo del rechazo", key="reject_comment")
-            if st.button("Confirmar rechazo", key="confirm_reject"):
-                if not reject_comment.strip():
-                    st.error("El comentario es obligatorio.")
-                else:
-                    ok, msg, _ = client.reject(approval_id, reject_comment)
-                    (st.success if ok else st.error)(msg)
+        with col1:
+            if st.button("✅ Aprobar", key=f"approve-{aid}", use_container_width=True):
+                ok, msg, _ = client.approve(UUID(aid))
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
 
-    with col3:
-        with st.expander("🔁 Solicitar cambios"):
-            change_comment = st.text_area("Qué cambios solicitas", key="change_comment")
-            if st.button("Enviar solicitud", key="confirm_changes"):
-                if not change_comment.strip():
-                    st.error("El comentario es obligatorio.")
-                else:
-                    ok, msg, _ = client.request_changes(approval_id, change_comment)
-                    (st.success if ok else st.error)(msg)
+        with col2:
+            with st.popover("❌ Rechazar", use_container_width=True):
+                rc = st.text_area("Motivo del rechazo", key=f"reject-comment-{aid}")
+                if st.button("Confirmar rechazo", key=f"reject-confirm-{aid}"):
+                    if not rc.strip():
+                        st.error("El comentario es obligatorio.")
+                    else:
+                        ok, msg, _ = client.reject(UUID(aid), rc)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
 
-st.divider()
-st.caption(f"Sesión: user_id = {st.session_state.user_id}")
+        with col3:
+            with st.popover("🔁 Solicitar cambios", use_container_width=True):
+                cc = st.text_area("Qué cambios pides", key=f"changes-comment-{aid}")
+                if st.button("Confirmar", key=f"changes-confirm-{aid}"):
+                    if not cc.strip():
+                        st.error("El comentario es obligatorio.")
+                    else:
+                        ok, msg, _ = client.request_changes(UUID(aid), cc)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()

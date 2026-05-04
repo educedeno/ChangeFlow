@@ -53,7 +53,7 @@ for cr in items:
         is_owner = str(st.session_state.user_id) == str(cr["requester_id"])
         is_admin = (st.session_state.get("user") or {}).get("role") == "ADMIN"
 
-        if status == "DRAFT" and is_owner:
+        if status in ("DRAFT", "CHANGES_REQUESTED") and is_owner:
             if cols[0].button("Enviar", key=f"submit-{rid}"):
                 ok, msg, _ = client.submit(UUID(rid))
                 (st.success if ok else st.error)(msg)

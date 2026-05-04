@@ -38,6 +38,13 @@ class ApiClient:
         resp = requests.post(f"{self.base_url}/requests/", headers=self._headers(), json=payload, timeout=10)
         return self._parse(resp)
 
+    def my_pending_approvals(self):
+        resp = requests.get(
+            f"{self.base_url}/requests/approvals/mine",
+            headers=self._headers(), timeout=10,
+        )
+        return self._parse_list(resp)
+
     # ----- Flow -----
     def submit(self, request_id: UUID):
         return self._parse(requests.post(f"{self.base_url}/requests/{request_id}/submit", headers=self._headers(), timeout=10))
