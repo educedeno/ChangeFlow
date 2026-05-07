@@ -1,7 +1,6 @@
 """Rutas de auditoría: GET /audit, GET /audit/{entity_type}/{entity_id}."""
 
 from typing import List
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 

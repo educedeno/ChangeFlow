@@ -1,7 +1,6 @@
 """Implementación concreta de AuditRepository usando SQLAlchemy."""
 
-from typing import List, Optional
-from uuid import UUID
+from typing import List
 
 from sqlalchemy.orm import Session
 
