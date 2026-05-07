@@ -20,7 +20,7 @@ class ChangeRequest:
     title: str
     description: str
     affected_system: str
-    risk_level: RiskLevel
+    risk_level:RiskLevel
     requester_id: UUID
     id: UUID = field(default_factory=uuid4)
     status: RequestStatus = RequestStatus.DRAFT

@@ -6,7 +6,7 @@ import streamlit as st
 API_URL = os.getenv("API_BASE_URL", "http://backend:8000")
 
 st.set_page_config(
-    page_title="ChangeFlow",
+    page_title="ChangeFlow (test)",
     page_icon="🔄",
     layout="wide",
 )
