@@ -7,10 +7,17 @@ Beneficios:
 - Facilita aplicar Template Method o decoradores en el futuro
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from app.application.use_cases.approve_request import ApproveRequestUseCase
+    from app.application.use_cases.assign_reviewer import AssignReviewerUseCase
+    from app.application.use_cases.reject_request import RejectRequestUseCase
 
 
 @dataclass

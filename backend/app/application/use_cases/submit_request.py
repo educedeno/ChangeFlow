@@ -5,7 +5,7 @@ from uuid import UUID
 from app.application.commands import CommandResult
 from app.application.services.event_bus import EventBus
 from app.domain.entities import Approval
-from app.domain.enums import ApprovalArea, RequestStatus, Role
+from app.domain.enums import ApprovalArea, Role
 from app.domain.events import RequestSubmitted, ReviewerAssigned, TechReviewRequired
 from app.domain.exceptions import (
     BusinessRuleViolationError,

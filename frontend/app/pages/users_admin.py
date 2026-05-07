@@ -91,7 +91,7 @@ if submitted_role:
             headers=headers,
         )
         if res.status_code == 200:
-            st.success(f"Rol actualizado correctamente.")
+            st.success("Rol actualizado correctamente.")
             st.rerun()
         elif res.status_code == 404:
             st.error("Usuario no encontrado.")

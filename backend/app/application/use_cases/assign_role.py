@@ -1,4 +1,4 @@
-from app.domain.enums import Role, Permission
+from app.domain.enums import Role
 from app.domain.value_objects import ROLE_PERMISSIONS
 from app.infrastructure.repositories.user_repository import UserRepository
 

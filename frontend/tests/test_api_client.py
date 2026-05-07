@@ -3,8 +3,6 @@
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
 from app.api_client import ApiClient
 
 

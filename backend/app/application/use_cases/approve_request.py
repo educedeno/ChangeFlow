@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.application.commands import CommandResult
 from app.application.services.event_bus import EventBus
-from app.application.use_cases.submit_request import SubmitRequestUseCase, _role_for_area
+from app.application.use_cases.submit_request import _role_for_area
 from app.domain.entities import Approval, Decision
 from app.domain.enums import ApprovalArea, DecisionAction, RequestStatus, Role
 from app.domain.events import (
