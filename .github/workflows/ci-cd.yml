@@ -31,11 +31,11 @@ jobs:
 
       - name: Lint (best-effort)
         # `|| true` mientras los modulos esten vacios; quitar cuando exista codigo real
-        run: ruff check backend/ frontend/ || true
+        run: ruff check backend/ frontend/
 
       - name: Tests (best-effort)
         # pytest sale con codigo 5 si no encuentra tests; tolerado de momento
-        run: pytest backend/app/tests/ || true
+        run: pytest backend/app/tests/
 
   # -------------------------------------------------------------------------
   # CD parte 1 — build y push de las dos imagenes a Docker Hub.
